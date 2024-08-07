@@ -193,9 +193,6 @@
   <ItemGroup>
     <ResourceCompile Include="d2d1-app.rc" />
   </ItemGroup>
-  <ItemGroup>
-    <Image Include="becca.ico" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
