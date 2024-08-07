@@ -40,6 +40,7 @@ typedef enum
     HIT_SQUARE_7,
     HIT_SQUARE_8,
     HIT_SQUARE_9,
+    HIT_RESET,
     HIT_ERROR = 0xff
 } GAME_SQUARES;
 
@@ -50,6 +51,7 @@ GAME_SQUARES ValidateClick(D2D1_POINT_2F point)
     // Case: Click is outside the rectangle play area
     if ((0.f < point.x && point.x < 100.f) || (1000.f < point.x) || (0.f < point.y && point.y < 50.f) || (850.f < point.y))
     {
+        if (1030.f <= point.x && point.x <= 1250.f && 150.f <= point.y && point.y <= 200.f) return HIT_RESET;
         return HIT_NONE;
     }
 
@@ -91,8 +93,33 @@ D2D1_POINT_2F CenterOfSquare(GAME_SQUARES square)
     return D2D1::Point2F(x, y);
 }
 
-bool ValidateBoard(char)
+typedef enum
 {
+    BOARD_IS_VALID,
+    BOARD_PLAYER_WON,
+    BOARD_COMPUTER_WON,
+    BOARD_DRAW
+
+}VALIDATE_BOARD;
+
+bool ValidateBoard(char board[9])
+{
+    for (int i = 0; i < 3; i++)
+    {
+        if (i >= 3) break;
+
+        // Horizontal lines
+        if (abs(board[i * 3] + board[i * 3 + 1] + board[i * 3 + 2]) == 3)
+        {
+            return false;
+        }
+        // Vertical lines
+        if (abs(board[i] + board[i + 3] + board[i + 6]) == 3)
+        {
+            return false;
+        }
+    }
+    if (abs(board[0] + board[4] + board[8] == 3) || abs(board[2] + board[4] + board[6] == 3)) return false;
     return true;
 }
 
@@ -100,7 +127,8 @@ bool PlayMove( char board[9])
 {
     for (int i = 0; i < 9; i++)
     {
-        if (board[i] == 0)
+
+        if (board[i] == 0 && ValidateBoard(board))
         {
             board[i] = -1;
             return true;
@@ -144,15 +172,17 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Msg, _In_ WPARAM wPar
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ PWSTR pCmdLine, _In_ int CmdShow)
 {
     UNREFERENCED_PARAMETER(pCmdLine);
-    
-    SetProcessDPIAware();
+    UNREFERENCED_PARAMETER(CmdShow);
 
-	HWND window{};
+    HWND window{};
     RECT windowRect = { 0, 0, 1280, 900 };
     WNDCLASSEX windowClass{};
     Renderer renderer{};
     MSG  messageLoop{};
 
+    // Adjust RECT to so that client delta is the old RECT
+    UINT dpi = GetDpiForSystem();
+    AdjustWindowRectExForDpi(&windowRect, WS_OVERLAPPEDWINDOW, NULL, WS_EX_LEFT, dpi);
 
     windowClass.cbSize = sizeof(WNDCLASSEX);
     windowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -166,13 +196,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ PWSTR pCm
     windowClass.lpszMenuName = NULL;
     windowClass.lpszClassName = TEXT("main-window-class");
     windowClass.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
-
-
-
     RegisterClassEx(&windowClass);
-
-    // Adjust RECT to so that client delta is the old RECT
-    AdjustWindowRect(&windowRect, WINDOW_STYLE, NULL);
 
     window = CreateWindowEx(
         WS_EX_LEFT,
@@ -186,7 +210,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ PWSTR pCm
         NULL,
         NULL,
         hInstance,
-        (LPVOID) &renderer
+        (LPVOID)&renderer
     );
 
     if (window == NULL)
@@ -204,8 +228,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ PWSTR pCm
 
         return EXIT_FAILURE;
     }
+
+
+    SetWindowPos(
+        window,
+        NULL, NULL, NULL,
+        static_cast<int>(static_cast<float>(windowRect.right - windowRect.left) * static_cast<float>(dpi) / static_cast<float>(USER_DEFAULT_SCREEN_DPI)),
+        static_cast<int>(static_cast<float>(windowRect.bottom - windowRect.top - GetSystemMetrics(SM_CYCAPTION)) * static_cast<float>(dpi) / static_cast<float>(USER_DEFAULT_SCREEN_DPI)),
+        SWP_NOMOVE | SWP_SHOWWINDOW);
+
    
-    ShowWindow(window, CmdShow);
 
     while (GetMessage(&messageLoop, window, 0, 0) > 0)
     {
@@ -220,7 +252,6 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
 {
     HRESULT hr{};
     static Renderer* renderer = nullptr;
-    static bool dot = false;
     static D2D1_POINT_2F pos{};
     static char playGrid[9]{};
 
@@ -254,19 +285,36 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
             renderTargetDesc.type = D2D1_RENDER_TARGET_TYPE_DEFAULT;
             renderTargetDesc.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
             renderTargetDesc.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-            renderTargetDesc.dpiX = 96;
-            renderTargetDesc.dpiY = 96;
-            renderTargetDesc.usage = D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE;
+            renderTargetDesc.usage = D2D1_RENDER_TARGET_USAGE_NONE;
             renderTargetDesc.minLevel = D2D1_FEATURE_LEVEL_DEFAULT;
+
+            UINT dpi = GetDpiForWindow(hWnd);
+
+            switch (dpi)
+            {
+                case (DPI_AWARENESS_UNAWARE):
+                {
+                    renderTargetDesc.dpiX = USER_DEFAULT_SCREEN_DPI;
+                    renderTargetDesc.dpiY = USER_DEFAULT_SCREEN_DPI;
+                    break;
+                }
+
+                default:
+                {
+                    renderTargetDesc.dpiX = static_cast<float>(dpi);
+                    renderTargetDesc.dpiY = static_cast<float>(dpi);
+                }
+            }
 
 
             D2D1_HWND_RENDER_TARGET_PROPERTIES handleDesc{};
             handleDesc.hwnd = hWnd;
-            handleDesc.pixelSize.width = static_cast<UINT32>(wc->cx);
-            handleDesc.pixelSize.height = static_cast<UINT32>(wc->cy);
+            handleDesc.pixelSize.width = 1280;
+            handleDesc.pixelSize.height = 900;
             handleDesc.presentOptions = D2D1_PRESENT_OPTIONS_NONE;
 
             hr = renderer->m_factory->CreateHwndRenderTarget(&renderTargetDesc, &handleDesc, &renderer->m_renderTarget);
+
 
             if (hr != S_OK)
             {
@@ -354,6 +402,31 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
             break;
         }
 
+        case WM_SIZE:
+        {
+            hr = renderer->m_renderTarget->Resize(D2D1::SizeU(static_cast<UINT32>(LOWORD(lParam)), static_cast<UINT32>(HIWORD(lParam))));
+            if (FAILED(hr)) DestroyWindow(hWnd);
+            break;
+        }
+
+        case WM_DPICHANGED:
+        {
+            // TODO: Adjust dpi and window size when dpi changes
+            RECT* rc = (RECT*)lParam;
+            UINT dpi = (HIWORD(wParam));
+            SetWindowPos(
+                hWnd,
+                NULL,
+                rc->left, 
+                rc->top,
+                static_cast<int>(static_cast<float>(rc->right - rc->left) * static_cast<float>(dpi) / static_cast<float>(USER_DEFAULT_SCREEN_DPI)),
+                static_cast<int>(static_cast<float>(rc->bottom - rc->top - GetSystemMetricsForDpi(SM_CYCAPTION, dpi)) * static_cast<float>(dpi) / static_cast<float>(USER_DEFAULT_SCREEN_DPI)),
+                SWP_NOZORDER);
+
+            //PostMessage(hWnd, WM_SIZE, NULL, MAKELPARAM(rc->right - rc->left, rc->bottom - rc->top));
+            break;
+        }
+
         case WM_CLOSE:
         {
             DestroyWindow(hWnd);
@@ -371,6 +444,8 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
         {
 
             renderer->m_renderTarget->BeginDraw();
+
+            renderer->m_renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
             renderer->m_renderTarget->Clear(D2D1::ColorF(D2D1::ColorF::DarkSlateGray));
 
@@ -394,7 +469,7 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
                 8.f
             );
 
-            // Verticle ilnes
+            // Verticle lines
             renderer->m_renderTarget->DrawLine(
                 D2D1::Point2F(100.f + 900.f / 3.f, 50.f),
                 D2D1::Point2F(100.f + 900.f / 3.f, 850),
@@ -408,6 +483,13 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
                 8.f
             );
 
+            // Reset button
+            renderer->m_renderTarget->FillRoundedRectangle(
+                D2D1::RoundedRect(D2D1::RectF(1030.f, 150, 1250.f, 200.f), 5, 5),
+                renderer->m_wBrush.Get()
+            );
+
+            // Draw played moves in play grid
             for (int i = 0; i < 9; i++)
             {
                 // Avoid compiler complaining about spectre
@@ -429,29 +511,41 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
             if (lParam)
             {
 
-                pos.x = LOWORD(lParam);
-                pos.y = HIWORD(lParam);
+                pos.x = static_cast<float>(GET_X_LPARAM(lParam));
+                pos.y = static_cast<float>(GET_Y_LPARAM(lParam));
 
                 GAME_SQUARES square = ValidateClick(pos);
 
-                if (square && square != HIT_ERROR)
+                if (square && square != HIT_RESET && square != HIT_ERROR)
                 {
                     WCHAR buf[64]{};
-                    _snwprintf_s(buf, 64, L"Hit Square: %d\n", square);
                     OutputDebugString(buf);
-                    if (playGrid[square - 1] == 1) playGrid[square - 1] = 0;
-                    else
+                    _snwprintf_s(buf, 64, L"Hit Square: %d\n", square);
+                    if (playGrid[square - 1] == 0 && ValidateBoard(playGrid))
                     {
                         playGrid[square - 1] = 1;
-
                         PlayMove(playGrid);
                     }
                     
                 }
+                else if (square == HIT_RESET)
+                {
+                    OutputDebugString(TEXT("Hit reset\n"));
+
+                    // Reset board
+                    for (int i = 0; i < 9; i++)
+                    {
+                        playGrid[i] = 0;
+                    }
+                }
             }
 
 
-            renderer->m_renderTarget->EndDraw();
+            hr = renderer->m_renderTarget->EndDraw();
+            if (hr == D2DERR_RECREATE_TARGET)
+            {
+                DestroyWindow(hWnd);
+            }
 
             break;
 
@@ -459,8 +553,13 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
 
         case WM_LBUTTONDOWN:
         {
+            // Adjust hit coordinates for dpi scaled window
+            UINT dpi = GetDpiForWindow(hWnd);
 
-            PostMessage(hWnd, WM_PAINT, NULL, MAKELPARAM(LOWORD(lParam), HIWORD(lParam) + GetSystemMetrics(SM_CYCAPTION)));
+            float _x = static_cast<float>(GET_X_LPARAM(lParam)) * static_cast<float>(USER_DEFAULT_SCREEN_DPI) / static_cast<float>(dpi);
+            float _y = static_cast<float>(GET_Y_LPARAM(lParam)) * static_cast<float>(USER_DEFAULT_SCREEN_DPI) / static_cast<float>(dpi);
+
+            PostMessage(hWnd, WM_PAINT, NULL, MAKELPARAM(static_cast<int>(_x), static_cast<int>(_y)));
             break;
         }
 
