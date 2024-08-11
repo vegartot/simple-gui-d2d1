@@ -12,8 +12,8 @@
 #include <Windows.h>
 #include <windowsx.h>
 
-#include <d2d1_3.h>
-#include <d2d1_3helper.h>
+#include <d2d1_1.h>
+#include <d2d1_1helper.h>
 #include <dxgi1_6.h>
 #include <dwrite_3.h>
 
@@ -119,7 +119,7 @@ bool ValidateBoard(char board[9])
             return false;
         }
     }
-    if (abs(board[0] + board[4] + board[8] == 3) || abs(board[2] + board[4] + board[6] == 3)) return false;
+    if (abs(board[0] + board[4] + board[8]) == 3 || abs(board[2] + board[4] + board[6]) == 3) return false;
     return true;
 }
 
@@ -140,12 +140,12 @@ bool PlayMove( char board[9])
 // Structure containing all renderer specific objects
 typedef struct Renderer
 {
-    Microsoft::WRL::ComPtr<ID2D1Factory8> m_factory;
+    Microsoft::WRL::ComPtr<ID2D1Factory1> m_factory;
     Microsoft::WRL::ComPtr<ID2D1HwndRenderTarget> m_renderTarget;
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> m_wBrush;
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> m_rBrush;
 
-    Microsoft::WRL::ComPtr<IDWriteFactory8> m_writeFactory;
+    Microsoft::WRL::ComPtr<IDWriteFactory1> m_writeFactory;
     Microsoft::WRL::ComPtr<IDWriteTextFormat> m_textFormat;
 
 } Renderer;
@@ -269,7 +269,7 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
             SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)wc->lpCreateParams);
             renderer = (Renderer*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
-            hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory8), (D2D1_FACTORY_OPTIONS*)D2D1_DEBUG_LEVEL_NONE, &renderer->m_factory);
+            hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory1), (D2D1_FACTORY_OPTIONS*)D2D1_DEBUG_LEVEL_NONE, &renderer->m_factory);
             if (hr != S_OK)
             {
                 WCHAR buf[128]{};
@@ -347,7 +347,7 @@ LRESULT CALLBACK WindowProcedure(_In_ HWND hWnd, _In_ UINT Message, _In_ WPARAM 
                 break;
             }
 
-            hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_ISOLATED, __uuidof(IDWriteFactory8), &renderer->m_writeFactory);
+            hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_ISOLATED, __uuidof(IDWriteFactory7), &renderer->m_writeFactory);
             if (hr != S_OK)
             {
                 WCHAR buf[128];
