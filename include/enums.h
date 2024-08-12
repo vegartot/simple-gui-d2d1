@@ -1,5 +1,5 @@
-#ifndef _ENUM_H_
-#define _ENUM_H_
+#ifndef _ENUMS_H_
+#define _ENUMS_H_
 
 // All hits to track within the window client area
 typedef enum
@@ -28,4 +28,4 @@ typedef enum
 
 }VALIDATE_BOARD;
 
-#endif // _ENUM_H_
+#endif // _ENUMS_H_
