@@ -1,141 +1,6 @@
 
-#pragma warning(push, 3)
-// System header file specific warnings
-#pragma warning(disable: 4668)      // Not defined preprocessor macros          : winioctl.h
-#pragma warning(disable: 4365)      // Conversion from long to unsigned int     : xmemory atomic
-#pragma warning(disable: 4820)      // Added padding to data structures         : d2d1.h, d2d1_1.h d3d10.h d3d10_1.h d3d10sdklayers.h d3d10effect.h d3d10shader.h dxgi.h dxgi1_2.h dxgi1_3.h dxgi1_6.h
-#pragma warning(disable: 5039)      // Potential undefined behaviour            : winbase.h
-#pragma warning(disable: 5246)      // Wrap initialization in braces            : d2d1_1helper.h
-#pragma warning(disable: 4264)      // No override available for virtual        : dwrite_3.h
-#pragma warning(disable: 4263)      // Function doesn't override                : dwrite_3.h
+#include "main.h"
 
-#include <Windows.h>
-#include <windowsx.h>
-
-#include <d2d1_1.h>
-#include <d2d1_1helper.h>
-#include <dxgi1_6.h>
-#include <dwrite_3.h>
-
-#include <iostream>
-#include <wrl/client.h>
-
-#pragma warning(pop)
-
-#include "resource.h"
-
-// Window style - should have minimize and close buttom with no resizing
-#define WINDOW_STYLE WS_SYSMENU | WS_MINIMIZEBOX
-
-// All hits to track within the window client area
-typedef enum
-{
-    HIT_NONE,
-    HIT_SQUARE_1,
-    HIT_SQUARE_2,
-    HIT_SQUARE_3,
-    HIT_SQUARE_4,
-    HIT_SQUARE_5,
-    HIT_SQUARE_6,
-    HIT_SQUARE_7,
-    HIT_SQUARE_8,
-    HIT_SQUARE_9,
-    HIT_RESET,
-    HIT_ERROR = 0xff
-} GAME_SQUARES;
-
-// Determine what if any game square was clicked on
-// by the player.
-GAME_SQUARES ValidateClick(D2D1_POINT_2F point)
-{
-    // Case: Click is outside the rectangle play area
-    if ((0.f < point.x && point.x < 100.f) || (1000.f < point.x) || (0.f < point.y && point.y < 50.f) || (850.f < point.y))
-    {
-        if (1030.f <= point.x && point.x <= 1250.f && 150.f <= point.y && point.y <= 200.f) return HIT_RESET;
-        return HIT_NONE;
-    }
-
-    // Handle every other case of the 9 squares
-    // For first row:
-    if (point.y < 50.f + 800.f / 3.f)
-    {
-        if (point.x < 100.f + 900.f / 3) return HIT_SQUARE_1;
-        else if (point.x < 100.f + 2.f * 900.f / 3) return HIT_SQUARE_2;
-        else return HIT_SQUARE_3;
-    }
-
-    // For second row:
-    if (point.y < 50.f + 2.f * 800.f / 3.f)
-    {
-        if (point.x < 100.f + 900.f / 3) return HIT_SQUARE_4;
-        else if (point.x < 100.f + 2.f * 900.f / 3) return HIT_SQUARE_5;
-        else return HIT_SQUARE_6;
-    }
-
-    // For third row:
-    if (point.y < 50.f + 800.f)
-    {
-        if (point.x < 100.f + 900.f / 3) return HIT_SQUARE_7;
-        else if (point.x < 100.f + 2.f * 900.f / 3) return HIT_SQUARE_8;
-        else return HIT_SQUARE_9;
-    }
-
-    // Should never arrive in this case, but compiler complains
-    return HIT_ERROR;
-}
-
-// Given a game square, returns the screen cooridates of the center
-// of that square.
-D2D1_POINT_2F CenterOfSquare(GAME_SQUARES square)
-{
-    float x = 100.f + 900.f / 6.f + static_cast<float>(square % 3) * 900.f / 3.f;
-    float y = 50.f + 800.f / 6.f + static_cast<float>(square / 3) * 800.f / 3.f;
-    return D2D1::Point2F(x, y);
-}
-
-typedef enum
-{
-    BOARD_IS_VALID,
-    BOARD_PLAYER_WON,
-    BOARD_COMPUTER_WON,
-    BOARD_DRAW
-
-}VALIDATE_BOARD;
-
-bool ValidateBoard(char board[9])
-{
-    for (int i = 0; i < 3; i++)
-    {
-        if (i >= 3) break;
-
-        // Horizontal lines
-        if (abs(board[i * 3] + board[i * 3 + 1] + board[i * 3 + 2]) == 3)
-        {
-            return false;
-        }
-        // Vertical lines
-        if (abs(board[i] + board[i + 3] + board[i + 6]) == 3)
-        {
-            return false;
-        }
-    }
-    if (abs(board[0] + board[4] + board[8]) == 3 || abs(board[2] + board[4] + board[6]) == 3) return false;
-    return true;
-}
-
-bool PlayMove( char board[9])
-{
-    for (int i = 0; i < 9; i++)
-    {
-
-        if (board[i] == 0 && ValidateBoard(board))
-        {
-            board[i] = -1;
-            return true;
-        }
-    }
-    return false;
-}
 
 // Structure containing all renderer specific objects
 typedef struct Renderer
@@ -173,6 +38,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ PWSTR pCm
 {
     UNREFERENCED_PARAMETER(pCmdLine);
     UNREFERENCED_PARAMETER(CmdShow);
+
+    SetProcessDPIAware();
 
     HWND window{};
     RECT windowRect = { 0, 0, 1280, 900 };
