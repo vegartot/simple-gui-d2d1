@@ -1,4 +1,0 @@
-
-CompileFlags:
-  Add: [-municode -mwin32 -mwindows]
-  Compiler: x86_64-w64-mingw32-g++
